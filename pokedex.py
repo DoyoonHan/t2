@@ -73,3 +73,12 @@ def region_range(name):
         if region == name:
             return start, end
     raise ValueError(f"알 수 없는 지역: {name!r}")
+
+
+# 지역 드롭다운에서 모든 지역을 차례로 보여 주는 선택지
+ALL_REGIONS = "전체"
+
+
+def region_options():
+    """지역 드롭다운 선택지. "전체" 다음에 REGIONS 순서대로 지역 이름을 둔다."""
+    return [ALL_REGIONS] + [name for name, _, _ in REGIONS]
