@@ -245,9 +245,21 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 .move .mv { font: 700 14px/normal var(--font); color: var(--text); }
 .lv { font: 400 12px/normal var(--font); color: var(--silver); }
 
-@media (max-width: 1280px) { .dex { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-@media (max-width: 896px)  { .dex { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 576px)  { .dex { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 바둑판 칸 수: PC 8칸 → 패드(1024px 이하) 4칸 → 모바일(576px 이하) 2칸 */
+@media (max-width: 1024px) { .dex { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 576px) {
+  .dex { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .block-container { padding: 32px 16px 48px; }
+  /* 좁은 카드에서도 이름이 말줄임(…)으로 잘리지 않고 줄바꿈되게 */
+  .card { padding: 10px; }
+  .card .name { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+  /* 상세 창: 이미지·글자·기술 목록이 휴대폰 너비 안에 들어오게 */
+  .dt-top { gap: 16px; }
+  .dt-art { width: 100%; max-width: 220px; margin: 0 auto; }
+  .dt-info .name { font-size: 24px; }
+  .moves { grid-template-columns: minmax(0, 1fr); }
+  .move .mv { overflow-wrap: anywhere; }
+}
 </style>
 """
 
