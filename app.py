@@ -1,6 +1,8 @@
 import requests
 import streamlit as st
 
+from pokedex import text_color, type_color
+
 GRAPHQL_URL = "https://graphql.pokeapi.co/v1beta2"
 KO = 3  # PokeAPI language_id for Korean
 
@@ -23,15 +25,6 @@ query Gen1Pokedex($lang: Int!) {
   }
 }
 """
-
-TYPE_COLORS = {
-    "normal": "#A8A77A", "fire": "#EE8130", "water": "#6390F0", "electric": "#F7D02C",
-    "grass": "#7AC74C", "ice": "#96D9D6", "fighting": "#C22E28", "poison": "#A33EA1",
-    "ground": "#E2BF65", "flying": "#A98FF3", "psychic": "#F95587", "bug": "#A6B91A",
-    "rock": "#B6A136", "ghost": "#735797", "dragon": "#6F35FC", "dark": "#705746",
-    "steel": "#B7B7CE", "fairy": "#D685AD",
-}
-
 
 @st.cache_data(show_spinner="포켓몬 데이터를 불러오는 중...")
 def fetch_pokedex():
@@ -95,11 +88,10 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 .card .no { font: 400 14px/normal var(--font); color: var(--silver); margin-top: 4px; }
 .card .types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .badge {
-  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  display: inline-flex; align-items: center; white-space: nowrap;
   font: 700 12px/1.5 var(--font); color: var(--silver);
   background: var(--mid); border-radius: 9999px; padding: 2px 10px;
 }
-.badge i { width: 6px; height: 6px; border-radius: 50%; }
 
 .credit {
   font: 400 14px/normal var(--font); color: #cbcbcb; text-align: center;
@@ -116,10 +108,11 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 
 
 def type_badges(types):
-    return "".join(
-        f'<span class="badge"><i style="background:{TYPE_COLORS.get(en, "#888")}"></i>{ko}</span>'
-        for en, ko in types
-    )
+    badges = []
+    for en, ko in types:
+        bg = type_color(en)
+        badges.append(f'<span class="badge" style="background:{bg};color:{text_color(bg)}">{ko}</span>')
+    return "".join(badges)
 
 
 def card(pokemon):
