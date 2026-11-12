@@ -1,6 +1,6 @@
 import unittest
 
-from detail import evolution_stages, last_moves, radar_svg, stats_to_chart
+from detail import evolution_stages, last_moves, parse_basic, radar_svg, stats_to_chart
 
 PIKACHU_STATS = {
     "hp": 35, "attack": 55, "defense": 40,
@@ -66,6 +66,31 @@ class EvolutionStagesTest(unittest.TestCase):
         ]
         self.assertEqual([[s["name"] for s in st] for st in evolution_stages(species)],
                          [["이브이"], ["샤미드", "쥬피썬더"]])
+
+
+class ParseBasicTest(unittest.TestCase):
+    def test_pichu(self):
+        raw = {
+            "id": 172,
+            "pokemonspecy": {"pokemonspeciesnames": [{"name": "피츄"}]},
+            "pokemontypes": [{"type": {"name": "electric", "typenames": [{"name": "전기"}]}}],
+            "pokemonsprites": [{"artwork": "https://example.com/172.png"}],
+        }
+        self.assertEqual(parse_basic(raw), {
+            "id": 172, "name": "피츄", "types": [("electric", "전기")],
+            "image": "https://example.com/172.png",
+        })
+
+    def test_missing_names_and_sprite(self):
+        raw = {
+            "id": 999,
+            "pokemonspecy": {"pokemonspeciesnames": []},
+            "pokemontypes": [{"type": {"name": "fire", "typenames": []}}],
+            "pokemonsprites": [],
+        }
+        self.assertEqual(parse_basic(raw), {
+            "id": 999, "name": "999", "types": [("fire", "fire")], "image": None,
+        })
 
 
 if __name__ == "__main__":

@@ -46,22 +46,56 @@ STAT_ORDER = [
 ]
 
 
+BASIC_QUERY = f"""
+query PokemonBasic($id: Int!, $lang: Int!) {{
+  pokemon(where: {{id: {{_eq: $id}}}}) {{
+    id
+    pokemonspecy {{ pokemonspeciesnames(where: {{language_id: {{_eq: $lang}}}}) {{ name }} }}
+    pokemontypes(order_by: {{slot: asc}}) {{
+      type {{ name typenames(where: {{language_id: {{_eq: $lang}}}}) {{ name }} }}
+    }}
+    pokemonsprites {{ artwork: {ARTWORK} }}
+  }}
+}}
+"""
+
+
 def _first_name(names, fallback):
     return names[0]["name"] if names else fallback
 
 
-def fetch_detail(pokemon_id, lang=3):
-    """포켓몬 한 마리의 상세 데이터를 PokeAPI에서 받아 화면용 형태로 돌려준다."""
-    res = requests.post(
-        GRAPHQL_URL,
-        json={"query": DETAIL_QUERY, "variables": {"id": pokemon_id, "lang": lang}},
-        timeout=30,
-    )
+def _post(query, variables):
+    res = requests.post(GRAPHQL_URL, json={"query": query, "variables": variables}, timeout=30)
     res.raise_for_status()
     payload = res.json()
     if "errors" in payload:
         raise RuntimeError(payload["errors"])
-    p = payload["data"]["pokemon"][0]
+    return payload["data"]
+
+
+def parse_basic(p):
+    """GraphQL의 pokemon 한 건을 카드/상세 창용 {id, name, types, image}로 바꾼다."""
+    sprites = p["pokemonsprites"]
+    return {
+        "id": p["id"],
+        "name": _first_name(p["pokemonspecy"]["pokemonspeciesnames"], str(p["id"])),
+        "types": [
+            (t["type"]["name"], _first_name(t["type"]["typenames"], t["type"]["name"]))
+            for t in p["pokemontypes"]
+        ],
+        "image": sprites[0]["artwork"] if sprites else None,
+    }
+
+
+def fetch_basic(pokemon_id, lang=3):
+    """도감 목록(1세대)에 없는 포켓몬의 기본 정보를 한 마리만 조회한다. 없으면 None."""
+    found = _post(BASIC_QUERY, {"id": pokemon_id, "lang": lang})["pokemon"]
+    return parse_basic(found[0]) if found else None
+
+
+def fetch_detail(pokemon_id, lang=3):
+    """포켓몬 한 마리의 상세 데이터를 PokeAPI에서 받아 화면용 형태로 돌려준다."""
+    p = _post(DETAIL_QUERY, {"id": pokemon_id, "lang": lang})["pokemon"][0]
 
     stats = {s["stat"]["name"]: s["base_stat"] for s in p["pokemonstats"]}
 
