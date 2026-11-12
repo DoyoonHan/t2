@@ -6,7 +6,10 @@ import requests
 import streamlit as st
 
 from detail import fetch_basic, fetch_detail, radar_svg
-from pokedex import ALL_TYPES, REGIONS, filter_by_type, region_range, text_color, type_color, type_options
+from pokedex import (
+    ALL_REGIONS, ALL_TYPES, REGIONS, filter_by_type, region_options, region_range,
+    text_color, type_color, type_options,
+)
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
@@ -82,6 +85,23 @@ def detail_href(no):
     params["r"] = str(loaded_count())
     params["no"] = str(no)
     return "?" + urlencode(params)
+
+
+def selected_region():
+    """주소의 ?region= 값. 없거나 모르는 지역이면 "전체"."""
+    name = st.query_params.get("region", ALL_REGIONS)
+    return name if name in region_options() else ALL_REGIONS
+
+
+def change_region():
+    """드롭다운에서 고른 지역을 주소에 남긴다. "전체"면 지우고 관동부터 다시 불러온다."""
+    choice = st.session_state["region-select"]
+    if choice == ALL_REGIONS:
+        st.query_params.pop("region", None)
+    else:
+        st.query_params["region"] = choice
+    st.query_params.pop("r", None)
+    st.query_params.pop("no", None)
 
 
 def selected_type():
@@ -337,17 +357,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 바둑판 위 선택 줄: 오른쪽 칸에 속성 드롭다운. 주소의 값으로 맞춰 두어 새 세션(링크 이동·새로고침)에서도 유지한다.
+# 바둑판 위 선택 줄: 왼쪽 칸은 지역, 오른쪽 칸은 속성 드롭다운.
+# 둘 다 주소(?region=, ?type=) 값으로 맞춰 두어 새 세션(링크 이동·새로고침)에서도 유지한다.
+region_col, type_col = st.columns(2)
+with region_col:
+    if st.session_state.get("region-select") != selected_region():
+        st.session_state["region-select"] = selected_region()
+    st.selectbox("지역", region_options(), key="region-select", on_change=change_region)
+
 type_name = selected_type()
 st.session_state["type-select"] = type_name
-_, type_col = st.columns(2)
 with type_col:
     st.selectbox("속성", type_options(), key="type-select", on_change=change_type)
 
+chosen = selected_region()
 loaded = loaded_count()
+shown_regions = REGIONS[:loaded] if chosen == ALL_REGIONS else [r for r in REGIONS if r[0] == chosen]
 pokedex = []
 sections = []
-for region, start, end in REGIONS[:loaded]:
+for region, start, end in shown_regions:
     mons = fetch_region(region)
     pokedex += mons
     shown = filter_by_type(mons, type_name)
@@ -357,7 +385,9 @@ for region, start, end in REGIONS[:loaded]:
 
 st.markdown("".join(sections), unsafe_allow_html=True)
 
-if loaded < len(REGIONS):
+if chosen != ALL_REGIONS:
+    pass  # 지역 하나만 볼 때는 다음 지역을 이어서 불러오지 않는다.
+elif loaded < len(REGIONS):
     next_region = REGIONS[loaded][0]
     # 끝까지 스크롤하면 자동으로 다음 지역을 불러오고, 자동 감지가 안 되는 환경을 위해 버튼도 둔다.
     SCROLL_SENTINEL(key="region-sentinel", data={"next": next_region, "loaded": loaded},
