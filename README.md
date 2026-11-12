@@ -3,6 +3,13 @@
 1세대 포켓몬(No.001 ~ No.151)을 한눈에 볼 수 있는 Streamlit 도감 페이지입니다.
 포켓몬 데이터는 [PokeAPI GraphQL](https://graphql.pokeapi.co/v1beta2)에서 가져옵니다.
 
+## 링크
+
+| 구분 | 주소 |
+|---|---|
+| 배포 | <https://fwmiyjcelqvjn5gxaldmym.streamlit.app/> |
+| GitHub | <https://github.com/DoyoonHan/t2> |
+
 ## 주요 내용
 
 - 1세대 포켓몬 151마리를 가로 8칸 바둑판 형식으로 나열
