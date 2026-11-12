@@ -101,6 +101,8 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 }
 .badge i { width: 6px; height: 6px; border-radius: 50%; }
 
+.credit { font: 400 12px/normal var(--font); color: var(--silver); text-align: center; margin-top: 32px; }
+
 @media (max-width: 1280px) { .dex { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 896px)  { .dex { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 576px)  { .dex { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -133,6 +135,7 @@ pokedex = fetch_pokedex()
 
 st.markdown(
     '<div class="head"><h1>포켓몬 도감</h1><p>1세대 · 151마리</p></div>'
-    f'<div class="dex">{"".join(card(p) for p in pokedex)}</div>',
+    f'<div class="dex">{"".join(card(p) for p in pokedex)}</div>'
+    '<div class="credit">데이터: PokeAPI</div>',
     unsafe_allow_html=True,
 )
