@@ -1,6 +1,7 @@
 import requests
 import streamlit as st
 
+from detail import fetch_detail, radar_svg
 from pokedex import text_color, type_color
 
 GRAPHQL_URL = "https://graphql.pokeapi.co/v1beta2"
@@ -53,6 +54,12 @@ def fetch_pokedex():
     return pokedex
 
 
+@st.cache_data(show_spinner="상세 정보를 불러오는 중...")
+def load_detail(pokemon_id):
+    # 누른 포켓몬 한 마리만 조회하고, 포켓몬별로 캐시한다.
+    return fetch_detail(pokemon_id, KO)
+
+
 CSS = """
 <style>
 :root {
@@ -72,9 +79,11 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 
 .dex { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px; }
 .card {
+  display: block; color: inherit; text-decoration: none; cursor: pointer;
   background: var(--surface); border-radius: 8px; padding: 12px;
   transition: background-color .2s ease, box-shadow .2s ease;
 }
+.dex a.card, .dex a.card:hover, .dex a.card:visited { color: var(--text) !important; text-decoration: none !important; }
 .card:hover { background: var(--surface-hover); box-shadow: rgba(0,0,0,0.3) 0px 8px 8px; }
 .card .art {
   background: var(--mid); border-radius: 6px; aspect-ratio: 1; display: flex;
@@ -100,6 +109,30 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 .credit a { color: var(--text); font-weight: 700; text-decoration: none; }
 .credit a:hover { text-decoration: underline; }
 
+.dt-top { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.dt-art { background: var(--mid); border-radius: 8px; width: 220px; max-width: 100%; aspect-ratio: 1; display: flex; }
+.dt-art img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
+.dt-info .no { font: 400 14px/normal var(--font); color: var(--silver); }
+.dt-info .name { font: 700 28px/normal var(--font); color: var(--text); margin: 4px 0 12px; }
+.dt-info .types { display: flex; gap: 6px; }
+.dt-sec { font: 700 16px/normal var(--font); color: var(--text); margin: 28px 0 12px; }
+.radar { width: 100%; max-width: 340px; display: block; margin: 0 auto; }
+.radar .grid { fill: none; stroke: #3e3e3e; stroke-width: 1; }
+.radar .value { fill: rgba(30,215,96,0.35); stroke: #1ed760; stroke-width: 2; }
+.radar .label { font: 700 12px var(--font); fill: var(--silver); }
+.radar .num { font: 700 13px var(--font); fill: var(--text); }
+.evo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.evo-stage { display: flex; flex-direction: column; gap: 8px; }
+.evo-arrow { color: var(--silver); font-size: 20px; }
+.evo-mon { background: var(--surface); border-radius: 8px; padding: 8px; width: 96px; text-align: center; }
+.evo-mon img { width: 72px; height: 72px; object-fit: contain; }
+.evo-mon div { font: 700 13px/normal var(--font); color: var(--text); }
+.evo-mon.now { outline: 2px solid #1ed760; }
+.moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.move { background: var(--surface); border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.move .mv { font: 700 14px/normal var(--font); color: var(--text); }
+.lv { font: 400 12px/normal var(--font); color: var(--silver); }
+
 @media (max-width: 1280px) { .dex { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 896px)  { .dex { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 576px)  { .dex { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -117,13 +150,73 @@ def type_badges(types):
 
 def card(pokemon):
     return (
-        f'<div class="card">'
+        f'<a class="card" href="?no={pokemon["id"]}" target="_self">'
         f'<div class="art"><img src="{pokemon["image"]}" alt="{pokemon["name"]}" loading="lazy"></div>'
         f'<div class="name">{pokemon["name"]}</div>'
         f'<div class="no">No.{pokemon["id"]:03d}</div>'
         f'<div class="types">{type_badges(pokemon["types"])}</div>'
-        f'</div>'
+        f'</a>'
     )
+
+
+def evolution_html(stages, current_id):
+    parts = []
+    for i, stage in enumerate(stages):
+        if i:
+            parts.append('<div class="evo-arrow">→</div>')
+        mons = "".join(
+            f'<div class="evo-mon{" now" if s["id"] == current_id else ""}">'
+            + (f'<img src="{s["image"]}" alt="{s["name"]}">' if s["image"] else "")
+            + f'<div>{s["name"]}</div></div>'
+            for s in stage
+        )
+        parts.append(f'<div class="evo-stage">{mons}</div>')
+    return f'<div class="evo">{"".join(parts)}</div>'
+
+
+def moves_html(moves):
+    if not moves:
+        return '<p class="lv">레벨업으로 배우는 기술이 없습니다.</p>'
+    return '<div class="moves">' + "".join(
+        f'<div class="move"><div><div class="mv">{m["name"]}</div><div class="lv">Lv.{m["level"]}</div></div>'
+        f'{type_badges([m["type"]])}</div>'
+        for m in moves
+    ) + "</div>"
+
+
+def close_detail():
+    st.query_params.pop("no", None)
+
+
+def show_detail(pokemon):
+    @st.dialog(f'No.{pokemon["id"]:03d} {pokemon["name"]}', width="medium", on_dismiss=close_detail)
+    def dialog():
+        d = load_detail(pokemon["id"])
+        st.markdown(
+            '<div class="dt-top">'
+            f'<div class="dt-art"><img src="{pokemon["image"]}" alt="{pokemon["name"]}"></div>'
+            f'<div class="dt-info"><div class="no">No.{pokemon["id"]:03d}</div>'
+            f'<div class="name">{pokemon["name"]}</div>'
+            f'<div class="types">{type_badges(pokemon["types"])}</div></div>'
+            '</div>'
+            f'<div class="dt-sec">능력치</div>{radar_svg(d["chart"])}'
+            f'<div class="dt-sec">진화</div>{evolution_html(d["evolution"], pokemon["id"])}'
+            f'<div class="dt-sec">기술 (레벨업으로 마지막에 배우는 4개)</div>{moves_html(d["moves"])}',
+            unsafe_allow_html=True,
+        )
+        if st.button("닫기", width="stretch"):
+            close_detail()
+            st.rerun()
+
+    dialog()
+
+
+def selected_pokemon(pokedex):
+    try:
+        no = int(st.query_params.get("no", ""))
+    except ValueError:
+        return None
+    return next((p for p in pokedex if p["id"] == no), None)
 
 
 st.set_page_config(page_title="포켓몬 도감", layout="wide")
@@ -137,3 +230,7 @@ st.markdown(
     '<div class="credit">데이터: <a href="https://pokeapi.co/" target="_blank">PokeAPI</a></div>',
     unsafe_allow_html=True,
 )
+
+selected = selected_pokemon(pokedex)
+if selected:
+    show_detail(selected)
