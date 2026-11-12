@@ -1,5 +1,10 @@
+import base64
+from pathlib import Path
+
 import requests
 import streamlit as st
+
+LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
 GRAPHQL_URL = "https://graphql.pokeapi.co/v1beta2"
 KO = 3  # PokeAPI language_id for Korean
@@ -73,8 +78,9 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 [data-testid="stHeader"] { background: transparent; }
 .block-container { max-width: none; padding: 48px 24px 64px; }
 
-.head { margin-bottom: 16px; }
+.head { margin-bottom: 16px; text-align: center; }
 .head h1 { font: 700 24px/normal var(--font); color: var(--text); margin: 0; padding: 0; }
+.head .logo { display: block; margin: 0 auto; width: 100%; max-width: 360px; height: auto; }
 .head p { font: 400 14px/normal var(--font); color: var(--silver); margin: 4px 0 0; }
 
 .dex { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px; }
@@ -133,13 +139,22 @@ def card(pokemon):
     )
 
 
+def title_html():
+    """로고 이미지를 쓰고, 파일을 못 읽으면 원래 글자 타이틀을 쓴다."""
+    try:
+        data = base64.b64encode(LOGO_PATH.read_bytes()).decode()
+    except OSError:
+        return "<h1>포켓몬 도감</h1>"
+    return f'<img class="logo" src="data:image/png;base64,{data}" alt="포켓몬 도감">'
+
+
 st.set_page_config(page_title="포켓몬 도감", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
 pokedex = fetch_pokedex()
 
 st.markdown(
-    '<div class="head"><h1>포켓몬 도감</h1><p>1세대 · 151마리</p></div>'
+    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>'
     f'<div class="dex">{"".join(card(p) for p in pokedex)}</div>'
     '<div class="credit">데이터: <a href="https://pokeapi.co/" target="_blank">PokeAPI</a></div>',
     unsafe_allow_html=True,
