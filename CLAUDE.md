@@ -20,3 +20,12 @@
 - 긴급 수정: main에서 hotfix/<이름> 브랜치를 만들고 main으로 Pull Request.
   머지된 뒤 develop에도 반영한다.
 - 작업이 끝나면 push하고 Pull Request까지 만든다. 머지는 사람이 한다.
+
+## ③ Issue 처리 방식
+- 이슈 번호를 받으면 먼저 그 이슈의 본문을 읽는다.
+- 브랜치 이름은 feature/issue-<번호>.
+- 본문의 “완료 기준”을 하나씩 확인한다. “건드리지 말 것”에 적힌 파일은 열지 않는다.
+- 끝나면 develop으로 Pull Request를 만든다. 제목은 이슈 제목과 같게,
+  본문 첫 줄은 closes #<번호>, 그 아래 변경 요약과 확인 방법.
+- 한 Pull Request는 한 이슈만 다룬다.
+- Pull Request를 만든 뒤, 한 일과 직접 확인하지 못한 것을 나에게 보고한다.
