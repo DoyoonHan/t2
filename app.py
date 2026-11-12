@@ -1,11 +1,12 @@
 import base64
+from urllib.parse import urlencode
 from pathlib import Path
 
 import requests
 import streamlit as st
 
 from detail import fetch_basic, fetch_detail, radar_svg
-from pokedex import REGIONS, region_range, text_color, type_color
+from pokedex import ALL_REGIONS, REGIONS, region_options, region_range, text_color, type_color
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
@@ -77,7 +78,27 @@ def load_next_region():
 
 
 def detail_href(no):
-    return f"?r={loaded_count()}&no={no}"
+    params = {k: v for k, v in st.query_params.items() if k != "no"}
+    params["r"] = str(loaded_count())
+    params["no"] = str(no)
+    return "?" + urlencode(params)
+
+
+def selected_region():
+    """주소의 ?region= 값. 없거나 모르는 지역이면 "전체"."""
+    name = st.query_params.get("region", ALL_REGIONS)
+    return name if name in region_options() else ALL_REGIONS
+
+
+def change_region():
+    """드롭다운에서 고른 지역을 주소에 남긴다. "전체"면 지우고 관동부터 다시 불러온다."""
+    choice = st.session_state["region-select"]
+    if choice == ALL_REGIONS:
+        st.query_params.pop("region", None)
+    else:
+        st.query_params["region"] = choice
+    st.query_params.pop("r", None)
+    st.query_params.pop("no", None)
 
 
 # 바둑판 맨 아래의 보이지 않는 표시. 화면에 들어오면(끝까지 스크롤) Python에 알린다.
@@ -313,10 +334,24 @@ def title_html():
 st.set_page_config(page_title="포켓몬 도감", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
+st.markdown(
+    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>',
+    unsafe_allow_html=True,
+)
+
+region_col, _ = st.columns(2)
+with region_col:
+    # 주소(?region=)를 기준으로 드롭다운 값을 맞춘다. 새로고침·상세 창 이동 후에도 유지된다.
+    if st.session_state.get("region-select") != selected_region():
+        st.session_state["region-select"] = selected_region()
+    st.selectbox("지역", region_options(), key="region-select", on_change=change_region)
+
+chosen = selected_region()
 loaded = loaded_count()
+shown_regions = REGIONS[:loaded] if chosen == ALL_REGIONS else [r for r in REGIONS if r[0] == chosen]
 pokedex = []
 sections = []
-for region, start, end in REGIONS[:loaded]:
+for region, start, end in shown_regions:
     mons = fetch_region(region)
     pokedex += mons
     sections.append(
@@ -324,12 +359,11 @@ for region, start, end in REGIONS[:loaded]:
         f'<div class="dex">{"".join(card(p) for p in mons)}</div>'
     )
 
-st.markdown(
-    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>' + "".join(sections),
-    unsafe_allow_html=True,
-)
+st.markdown("".join(sections), unsafe_allow_html=True)
 
-if loaded < len(REGIONS):
+if chosen != ALL_REGIONS:
+    pass  # 지역 하나만 볼 때는 다음 지역을 이어서 불러오지 않는다.
+elif loaded < len(REGIONS):
     next_region = REGIONS[loaded][0]
     # 끝까지 스크롤하면 자동으로 다음 지역을 불러오고, 자동 감지가 안 되는 환경을 위해 버튼도 둔다.
     SCROLL_SENTINEL(key="region-sentinel", data={"next": next_region, "loaded": loaded},
