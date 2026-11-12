@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Streamlit secrets (API keys etc.)
+.streamlit/secrets.toml
+
+# PokeAPI response cache (requests-cache)
+*.sqlite
+http_cache/
+
+# Environment variables
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
