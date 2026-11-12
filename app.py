@@ -5,7 +5,7 @@ import requests
 import streamlit as st
 
 from detail import fetch_basic, fetch_detail, radar_svg
-from pokedex import text_color, type_color
+from pokedex import REGIONS, region_range, text_color, type_color
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
@@ -13,8 +13,8 @@ GRAPHQL_URL = "https://graphql.pokeapi.co/v1beta2"
 KO = 3  # PokeAPI language_id for Korean
 
 QUERY = """
-query Gen1Pokedex($lang: Int!) {
-  pokemon(where: {id: {_gte: 1, _lte: 151}}, order_by: {id: asc}) {
+query RegionPokedex($lang: Int!, $start: Int!, $end: Int!) {
+  pokemon(where: {id: {_gte: $start, _lte: $end}}, order_by: {id: asc}) {
     id
     pokemonspecy {
       pokemonspeciesnames(where: {language_id: {_eq: $lang}}) { name }
@@ -33,10 +33,12 @@ query Gen1Pokedex($lang: Int!) {
 """
 
 @st.cache_data(show_spinner="포켓몬 데이터를 불러오는 중...")
-def fetch_pokedex():
+def fetch_region(region):
+    """지역 하나의 포켓몬 목록을 불러온다. 지역별로 캐시한다."""
+    start, end = region_range(region)
     res = requests.post(
         GRAPHQL_URL,
-        json={"query": QUERY, "variables": {"lang": KO}},
+        json={"query": QUERY, "variables": {"lang": KO, "start": start, "end": end}},
         timeout=30,
     )
     res.raise_for_status()
@@ -47,16 +49,61 @@ def fetch_pokedex():
     pokedex = []
     for p in payload["data"]["pokemon"]:
         types = [
-            (t["type"]["name"], t["type"]["typenames"][0]["name"])
+            (t["type"]["name"], t["type"]["typenames"][0]["name"] if t["type"]["typenames"] else t["type"]["name"])
             for t in p["pokemontypes"]
         ]
+        names = p["pokemonspecy"]["pokemonspeciesnames"]
+        sprites = p["pokemonsprites"]
         pokedex.append({
             "id": p["id"],
-            "name": p["pokemonspecy"]["pokemonspeciesnames"][0]["name"],
+            "name": names[0]["name"] if names else str(p["id"]),
             "types": types,
-            "image": p["pokemonsprites"][0]["artwork"],
+            "image": sprites[0]["artwork"] if sprites else None,
         })
     return pokedex
+
+
+def loaded_count():
+    """지금까지 불러온 지역 수. 주소의 ?r= 값에 보관해 새로고침·상세 창 이동 후에도 유지한다."""
+    try:
+        n = int(st.query_params.get("r", "1"))
+    except ValueError:
+        n = 1
+    return min(max(n, 1), len(REGIONS))
+
+
+def load_next_region():
+    st.query_params["r"] = str(min(loaded_count() + 1, len(REGIONS)))
+
+
+def detail_href(no):
+    return f"?r={loaded_count()}&no={no}"
+
+
+# 바둑판 맨 아래의 보이지 않는 표시. 화면에 들어오면(끝까지 스크롤) Python에 알린다.
+SCROLL_SENTINEL = st.components.v2.component(
+    "region_scroll_sentinel",
+    html='<div class="load-sentinel" style="height:1px"></div>',
+    js="""
+export default function(component) {
+  const { data, setTriggerValue, parentElement } = component;
+  const el = parentElement.querySelector('.load-sentinel');
+  if (!el || !data) return;
+  // 붙인 직후 이미 보이는 상태라면 무시하고, 한 번 화면 밖에 있다가 다시 들어올 때만 알린다.
+  let armed = false, fired = false;
+  const io = new IntersectionObserver((entries) => {
+    const visible = entries.some((e) => e.isIntersecting);
+    if (!visible) { armed = true; return; }
+    if (armed && !fired) {
+      fired = true;
+      setTriggerValue('reached', data.next);
+    }
+  }, { rootMargin: '0px 0px 400px 0px' });
+  io.observe(el);
+  return () => io.disconnect();
+}
+""",
+)
 
 
 @st.cache_data(show_spinner="상세 정보를 불러오는 중...")
@@ -82,6 +129,8 @@ CSS = """
 html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(--font); color: var(--text); }
 [data-testid="stAppViewContainer"] { background: var(--base); }
 [data-testid="stHeader"] { background: transparent; }
+/* 새 지역이 붙을 때 브라우저가 화면을 맨 아래에 고정하지 않도록 (연달아 불러오는 것 방지) */
+[data-testid="stAppViewContainer"], [data-testid="stMain"], .main, section { overflow-anchor: none; }
 .block-container { max-width: none; padding: 48px 24px 64px; }
 
 .head { margin-bottom: 16px; text-align: center; }
@@ -113,6 +162,15 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
   font: 700 12px/1.5 var(--font); color: var(--silver);
   background: var(--mid); border-radius: 9999px; padding: 2px 10px;
 }
+
+.region {
+  display: flex; align-items: center; gap: 12px; margin: 40px 0 16px;
+  font: 700 20px/normal var(--font); color: var(--text);
+}
+.region:first-child { margin-top: 8px; }
+.region::after { content: ""; flex: 1; height: 1px; background: #3e3e3e; }
+.region small { font: 400 14px/normal var(--font); color: var(--silver); }
+.all-loaded { font: 400 14px/normal var(--font); color: var(--silver); text-align: center; margin-top: 24px; }
 
 .credit {
   font: 400 14px/normal var(--font); color: #cbcbcb; text-align: center;
@@ -165,8 +223,8 @@ def type_badges(types):
 
 def card(pokemon):
     return (
-        f'<a class="card" href="?no={pokemon["id"]}" target="_self">'
-        f'<div class="art"><img src="{pokemon["image"]}" alt="{pokemon["name"]}" loading="lazy"></div>'
+        f'<a class="card" href="{detail_href(pokemon["id"])}" target="_self">'
+        f'<div class="art"><img src="{pokemon["image"] or ""}" alt="{pokemon["name"]}" loading="lazy"></div>'
         f'<div class="name">{pokemon["name"]}</div>'
         f'<div class="no">No.{pokemon["id"]:03d}</div>'
         f'<div class="types">{type_badges(pokemon["types"])}</div>'
@@ -186,7 +244,7 @@ def evolution_html(stages, current_id):
                 mons += f'<div class="evo-mon now">{inner}</div>'
             else:
                 # 누르면 그 포켓몬의 상세 창으로 이동
-                mons += f'<a class="evo-mon" href="?no={s["id"]}" target="_self" title="{s["name"]} 상세 보기">{inner}</a>'
+                mons += f'<a class="evo-mon" href="{detail_href(s["id"])}" target="_self" title="{s["name"]} 상세 보기">{inner}</a>'
         parts.append(f'<div class="evo-stage">{mons}</div>')
     return f'<div class="evo">{"".join(parts)}</div>'
 
@@ -255,11 +313,32 @@ def title_html():
 st.set_page_config(page_title="포켓몬 도감", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
-pokedex = fetch_pokedex()
+loaded = loaded_count()
+pokedex = []
+sections = []
+for region, start, end in REGIONS[:loaded]:
+    mons = fetch_region(region)
+    pokedex += mons
+    sections.append(
+        f'<div class="region">{region} <small>No.{start:03d} – {end:03d}</small></div>'
+        f'<div class="dex">{"".join(card(p) for p in mons)}</div>'
+    )
 
 st.markdown(
-    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>'
-    f'<div class="dex">{"".join(card(p) for p in pokedex)}</div>'
+    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>' + "".join(sections),
+    unsafe_allow_html=True,
+)
+
+if loaded < len(REGIONS):
+    next_region = REGIONS[loaded][0]
+    # 끝까지 스크롤하면 자동으로 다음 지역을 불러오고, 자동 감지가 안 되는 환경을 위해 버튼도 둔다.
+    SCROLL_SENTINEL(key="region-sentinel", data={"next": next_region, "loaded": loaded},
+                    on_reached_change=load_next_region)
+    st.button(f"다음 지역({next_region}) 불러오기", on_click=load_next_region, width="stretch")
+else:
+    st.markdown('<div class="all-loaded">모든 지역을 불러왔습니다.</div>', unsafe_allow_html=True)
+
+st.markdown(
     '<div class="credit">데이터: <a href="https://pokeapi.co/" target="_blank">PokeAPI</a></div>',
     unsafe_allow_html=True,
 )

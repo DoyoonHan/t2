@@ -51,3 +51,25 @@ def text_color(background):
     if contrast_ratio(background, LIGHT_TEXT) >= contrast_ratio(background, DARK_TEXT):
         return LIGHT_TEXT
     return DARK_TEXT
+
+
+# 지역(세대)별 전국도감 번호 범위. 순서대로 불러온다.
+REGIONS = [
+    ("관동", 1, 151),
+    ("성도", 152, 251),
+    ("호연", 252, 386),
+    ("신오", 387, 493),
+    ("하나", 494, 649),
+    ("칼로스", 650, 721),
+    ("알로라", 722, 809),
+    ("가라르", 810, 905),
+    ("팔데아", 906, 1025),
+]
+
+
+def region_range(name):
+    """지역 이름을 받아 (시작 번호, 끝 번호)를 돌려준다. 없는 지역이면 ValueError."""
+    for region, start, end in REGIONS:
+        if region == name:
+            return start, end
+    raise ValueError(f"알 수 없는 지역: {name!r}")
