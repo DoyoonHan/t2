@@ -3,7 +3,6 @@ import streamlit as st
 
 GRAPHQL_URL = "https://graphql.pokeapi.co/v1beta2"
 KO = 3  # PokeAPI language_id for Korean
-COLUMNS = 8
 
 QUERY = """
 query Gen1Pokedex($lang: Int!) {
@@ -61,31 +60,79 @@ def fetch_pokedex():
     return pokedex
 
 
+CSS = """
+<style>
+:root {
+  --base: #121212; --surface: #181818; --surface-hover: #282828; --mid: #1f1f1f;
+  --text: #ffffff; --silver: #b3b3b3;
+  --font: "Helvetica Neue", helvetica, arial, "Apple SD Gothic Neo", "Malgun Gothic",
+          "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+}
+html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(--font); color: var(--text); }
+[data-testid="stAppViewContainer"] { background: var(--base); }
+[data-testid="stHeader"] { background: transparent; }
+.block-container { max-width: none; padding: 48px 24px 64px; }
+
+.head { margin-bottom: 16px; }
+.head h1 { font: 700 24px/normal var(--font); color: var(--text); margin: 0; padding: 0; }
+.head p { font: 400 14px/normal var(--font); color: var(--silver); margin: 4px 0 0; }
+
+.dex { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px; }
+.card {
+  background: var(--surface); border-radius: 8px; padding: 12px;
+  transition: background-color .2s ease, box-shadow .2s ease;
+}
+.card:hover { background: var(--surface-hover); box-shadow: rgba(0,0,0,0.3) 0px 8px 8px; }
+.card .art {
+  background: var(--mid); border-radius: 6px; aspect-ratio: 1; display: flex;
+  box-shadow: rgba(0,0,0,0.5) 0px 8px 24px;
+}
+.card .art img { width: 100%; height: 100%; object-fit: contain; padding: 8px; }
+.card .name {
+  font: 700 16px/normal var(--font); color: var(--text); margin-top: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card .no { font: 400 14px/normal var(--font); color: var(--silver); margin-top: 4px; }
+.card .types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font: 700 12px/1.5 var(--font); color: var(--silver);
+  background: var(--mid); border-radius: 9999px; padding: 2px 10px;
+}
+.badge i { width: 6px; height: 6px; border-radius: 50%; }
+
+@media (max-width: 1280px) { .dex { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 896px)  { .dex { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 576px)  { .dex { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+"""
+
+
 def type_badges(types):
-    return " ".join(
-        f'<span style="background:{TYPE_COLORS.get(en, "#888")};color:#fff;'
-        f'padding:2px 8px;border-radius:10px;font-size:0.75rem;'
-        f'display:inline-block;white-space:nowrap;margin:2px 0;">{ko}</span>'
+    return "".join(
+        f'<span class="badge"><i style="background:{TYPE_COLORS.get(en, "#888")}"></i>{ko}</span>'
         for en, ko in types
     )
 
 
+def card(pokemon):
+    return (
+        f'<div class="card">'
+        f'<div class="art"><img src="{pokemon["image"]}" alt="{pokemon["name"]}" loading="lazy"></div>'
+        f'<div class="name">{pokemon["name"]}</div>'
+        f'<div class="no">No.{pokemon["id"]:03d}</div>'
+        f'<div class="types">{type_badges(pokemon["types"])}</div>'
+        f'</div>'
+    )
+
+
 st.set_page_config(page_title="포켓몬 도감", layout="wide")
-st.title("포켓몬 도감")
+st.markdown(CSS, unsafe_allow_html=True)
 
 pokedex = fetch_pokedex()
 
-for start in range(0, len(pokedex), COLUMNS):
-    cols = st.columns(COLUMNS)
-    for col, pokemon in zip(cols, pokedex[start:start + COLUMNS]):
-        with col.container(border=True):
-            st.markdown(
-                f'<div style="text-align:center;">'
-                f'<img src="{pokemon["image"]}" alt="{pokemon["name"]}" loading="lazy" '
-                f'style="width:100%;aspect-ratio:1;object-fit:contain;">'
-                f'<div style="color:#888;font-size:0.8rem;">No.{pokemon["id"]:03d}</div>'
-                f'<div style="font-weight:600;margin:2px 0 6px;">{pokemon["name"]}</div>'
-                f'<div>{type_badges(pokemon["types"])}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+st.markdown(
+    '<div class="head"><h1>포켓몬 도감</h1><p>1세대 · 151마리</p></div>'
+    f'<div class="dex">{"".join(card(p) for p in pokedex)}</div>',
+    unsafe_allow_html=True,
+)
