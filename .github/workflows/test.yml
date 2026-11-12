@@ -1,0 +1,29 @@
+name: 테스트
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 가져오기
+        uses: actions/checkout@v5
+
+      - name: Python 설치
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: 패키지 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 테스트 실행
+        run: python -m unittest discover tests -v
