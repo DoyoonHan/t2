@@ -79,9 +79,10 @@ for start in range(0, len(pokedex), COLUMNS):
     cols = st.columns(COLUMNS)
     for col, pokemon in zip(cols, pokedex[start:start + COLUMNS]):
         with col.container(border=True):
-            st.image(pokemon["image"], width="stretch")
             st.markdown(
                 f'<div style="text-align:center;">'
+                f'<img src="{pokemon["image"]}" alt="{pokemon["name"]}" loading="lazy" '
+                f'style="width:100%;aspect-ratio:1;object-fit:contain;">'
                 f'<div style="color:#888;font-size:0.8rem;">No.{pokemon["id"]:03d}</div>'
                 f'<div style="font-weight:600;margin:2px 0 6px;">{pokemon["name"]}</div>'
                 f'<div>{type_badges(pokemon["types"])}</div>'
