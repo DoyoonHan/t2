@@ -101,7 +101,12 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 }
 .badge i { width: 6px; height: 6px; border-radius: 50%; }
 
-.credit { font: 400 12px/normal var(--font); color: var(--silver); text-align: center; margin-top: 32px; }
+.credit {
+  font: 400 14px/normal var(--font); color: #cbcbcb; text-align: center;
+  background: var(--surface); border-radius: 8px; padding: 16px; margin-top: 48px;
+}
+.credit a { color: var(--text); font-weight: 700; text-decoration: none; }
+.credit a:hover { text-decoration: underline; }
 
 @media (max-width: 1280px) { .dex { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 896px)  { .dex { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -136,6 +141,6 @@ pokedex = fetch_pokedex()
 st.markdown(
     '<div class="head"><h1>포켓몬 도감</h1><p>1세대 · 151마리</p></div>'
     f'<div class="dex">{"".join(card(p) for p in pokedex)}</div>'
-    '<div class="credit">데이터: PokeAPI</div>',
+    '<div class="credit">데이터: <a href="https://pokeapi.co/" target="_blank">PokeAPI</a></div>',
     unsafe_allow_html=True,
 )
