@@ -1,11 +1,12 @@
 import base64
+from urllib.parse import urlencode
 from pathlib import Path
 
 import requests
 import streamlit as st
 
 from detail import fetch_basic, fetch_detail, radar_svg
-from pokedex import REGIONS, region_range, text_color, type_color
+from pokedex import ALL_TYPES, REGIONS, filter_by_type, region_range, text_color, type_color, type_options
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
@@ -77,7 +78,24 @@ def load_next_region():
 
 
 def detail_href(no):
-    return f"?r={loaded_count()}&no={no}"
+    params = {k: v for k, v in st.query_params.items() if k != "no"}
+    params["r"] = str(loaded_count())
+    params["no"] = str(no)
+    return "?" + urlencode(params)
+
+
+def selected_type():
+    """고른 속성. 주소의 ?type= 값에 보관해 상세 창을 열고 닫거나 새로고침해도 유지한다."""
+    name = st.query_params.get("type", ALL_TYPES)
+    return name if name in type_options() else ALL_TYPES
+
+
+def change_type():
+    name = st.session_state["type-select"]
+    if name == ALL_TYPES:
+        st.query_params.pop("type", None)
+    else:
+        st.query_params["type"] = name
 
 
 # 바둑판 맨 아래의 보이지 않는 표시. 화면에 들어오면(끝까지 스크롤) Python에 알린다.
@@ -170,6 +188,7 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 .region:first-child { margin-top: 8px; }
 .region::after { content: ""; flex: 1; height: 1px; background: #3e3e3e; }
 .region small { font: 400 14px/normal var(--font); color: var(--silver); }
+.empty { font: 400 14px/normal var(--font); color: var(--silver); text-align: center; padding: 24px 0; }
 .all-loaded { font: 400 14px/normal var(--font); color: var(--silver); text-align: center; margin-top: 24px; }
 
 .credit {
@@ -313,21 +332,30 @@ def title_html():
 st.set_page_config(page_title="포켓몬 도감", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
+st.markdown(
+    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>',
+    unsafe_allow_html=True,
+)
+
+# 바둑판 위 선택 줄: 오른쪽 칸에 속성 드롭다운. 주소의 값으로 맞춰 두어 새 세션(링크 이동·새로고침)에서도 유지한다.
+type_name = selected_type()
+st.session_state["type-select"] = type_name
+_, type_col = st.columns(2)
+with type_col:
+    st.selectbox("속성", type_options(), key="type-select", on_change=change_type)
+
 loaded = loaded_count()
 pokedex = []
 sections = []
 for region, start, end in REGIONS[:loaded]:
     mons = fetch_region(region)
     pokedex += mons
-    sections.append(
-        f'<div class="region">{region} <small>No.{start:03d} – {end:03d}</small></div>'
-        f'<div class="dex">{"".join(card(p) for p in mons)}</div>'
-    )
+    shown = filter_by_type(mons, type_name)
+    grid = (f'<div class="dex">{"".join(card(p) for p in shown)}</div>' if shown
+            else '<div class="empty">해당 속성의 포켓몬이 없습니다.</div>')
+    sections.append(f'<div class="region">{region} <small>No.{start:03d} – {end:03d}</small></div>' + grid)
 
-st.markdown(
-    f'<div class="head">{title_html()}<p>1세대 · 151마리</p></div>' + "".join(sections),
-    unsafe_allow_html=True,
-)
+st.markdown("".join(sections), unsafe_allow_html=True)
 
 if loaded < len(REGIONS):
     next_region = REGIONS[loaded][0]
