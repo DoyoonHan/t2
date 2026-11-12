@@ -53,6 +53,29 @@ def text_color(background):
     return DARK_TEXT
 
 
+# 속성 드롭다운에서 "거르지 않음"을 뜻하는 선택지
+ALL_TYPES = "전체"
+
+
+def type_options():
+    """속성 드롭다운 선택지: 전체 + 18개 속성(한국어, KO_NAMES 순서)."""
+    return [ALL_TYPES, *KO_NAMES]
+
+
+def filter_by_type(pokedex, type_name):
+    """포켓몬 목록에서 그 속성(한국어 이름)을 가진 포켓몬만 돌려준다.
+
+    속성이 두 개면 둘 중 하나만 맞아도 남긴다. "전체"면 목록을 그대로 돌려주고,
+    모르는 속성 이름이면 ValueError.
+    """
+    if type_name == ALL_TYPES:
+        return list(pokedex)
+    if type_name not in KO_NAMES:
+        raise ValueError(f"알 수 없는 속성: {type_name!r}")
+    en = KO_NAMES[type_name]
+    return [p for p in pokedex if any(t == en for t, _ in p["types"])]
+
+
 # 지역(세대)별 전국도감 번호 범위. 순서대로 불러온다.
 REGIONS = [
     ("관동", 1, 151),
