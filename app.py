@@ -4,7 +4,7 @@ from pathlib import Path
 import requests
 import streamlit as st
 
-from detail import fetch_detail, radar_svg
+from detail import fetch_basic, fetch_detail, radar_svg
 from pokedex import text_color, type_color
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
@@ -63,6 +63,12 @@ def fetch_pokedex():
 def load_detail(pokemon_id):
     # 누른 포켓몬 한 마리만 조회하고, 포켓몬별로 캐시한다.
     return fetch_detail(pokemon_id, KO)
+
+
+@st.cache_data(show_spinner=False)
+def load_basic(pokemon_id):
+    # 진화도에서 누른 1세대 밖 포켓몬(예: 피츄)의 이름·속성·이미지만 조회한다.
+    return fetch_basic(pokemon_id, KO)
 
 
 CSS = """
@@ -134,6 +140,9 @@ html, body, [data-testid="stAppViewContainer"], .stMarkdown { font-family: var(-
 .evo-mon img { width: 72px; height: 72px; object-fit: contain; }
 .evo-mon div { font: 700 13px/normal var(--font); color: var(--text); }
 .evo-mon.now { outline: 2px solid #1ed760; }
+.evo a.evo-mon, .evo a.evo-mon:visited, .evo a.evo-mon:hover { display: block; color: var(--text) !important; text-decoration: none !important; cursor: pointer; }
+.evo a.evo-mon { transition: background-color .2s ease; }
+.evo a.evo-mon:hover { background: var(--surface-hover); }
 .moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .move { background: var(--surface); border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .move .mv { font: 700 14px/normal var(--font); color: var(--text); }
@@ -170,12 +179,14 @@ def evolution_html(stages, current_id):
     for i, stage in enumerate(stages):
         if i:
             parts.append('<div class="evo-arrow">→</div>')
-        mons = "".join(
-            f'<div class="evo-mon{" now" if s["id"] == current_id else ""}">'
-            + (f'<img src="{s["image"]}" alt="{s["name"]}">' if s["image"] else "")
-            + f'<div>{s["name"]}</div></div>'
-            for s in stage
-        )
+        mons = ""
+        for s in stage:
+            inner = (f'<img src="{s["image"]}" alt="{s["name"]}">' if s["image"] else "") + f'<div>{s["name"]}</div>'
+            if s["id"] == current_id:
+                mons += f'<div class="evo-mon now">{inner}</div>'
+            else:
+                # 누르면 그 포켓몬의 상세 창으로 이동
+                mons += f'<a class="evo-mon" href="?no={s["id"]}" target="_self" title="{s["name"]} 상세 보기">{inner}</a>'
         parts.append(f'<div class="evo-stage">{mons}</div>')
     return f'<div class="evo">{"".join(parts)}</div>'
 
@@ -222,7 +233,14 @@ def selected_pokemon(pokedex):
         no = int(st.query_params.get("no", ""))
     except ValueError:
         return None
-    return next((p for p in pokedex if p["id"] == no), None)
+    found = next((p for p in pokedex if p["id"] == no), None)
+    if found or no < 1:
+        return found
+    # 진화도에서 누른 1세대 밖 포켓몬은 그 한 마리만 조회한다.
+    try:
+        return load_basic(no)
+    except Exception:
+        return None
 
 
 def title_html():
