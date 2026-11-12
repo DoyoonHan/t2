@@ -1,5 +1,7 @@
 # 포켓몬 도감
 
+**버전: 1.1**
+
 1세대 포켓몬(No.001 ~ No.151)을 한눈에 볼 수 있는 Streamlit 도감 페이지입니다.
 포켓몬 데이터는 [PokeAPI GraphQL](https://graphql.pokeapi.co/v1beta2)에서 가져옵니다.
 
