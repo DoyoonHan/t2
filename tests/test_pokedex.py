@@ -1,6 +1,6 @@
 import unittest
 
-from pokedex import UNKNOWN_COLOR, contrast_ratio, text_color, type_color
+from pokedex import REGIONS, UNKNOWN_COLOR, contrast_ratio, region_range, text_color, type_color
 
 
 class TypeColorTest(unittest.TestCase):
@@ -30,6 +30,22 @@ class TypeColorTest(unittest.TestCase):
             bg = type_color(name)
             with self.subTest(name=name, bg=bg):
                 self.assertGreaterEqual(contrast_ratio(bg, text_color(bg)), 4.5)
+
+
+class RegionRangeTest(unittest.TestCase):
+    def test_kanto(self):
+        self.assertEqual(region_range("관동"), (1, 151))
+
+    def test_johto(self):
+        self.assertEqual(region_range("성도"), (152, 251))
+
+    def test_unknown_region_raises(self):
+        with self.assertRaises(ValueError):
+            region_range("없는지역")
+
+    def test_regions_are_continuous(self):
+        for (_, _, end), (_, start, _) in zip(REGIONS, REGIONS[1:]):
+            self.assertEqual(start, end + 1)
 
 
 if __name__ == "__main__":
